@@ -19,4 +19,12 @@
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="nt.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ntfs.h">
+      <Filter>源文件</Filter>
+    </ClInclude>
+  </ItemGroup>
 </Project>
