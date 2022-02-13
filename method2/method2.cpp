@@ -42,46 +42,6 @@ PCWCHAR FileName = L"pingme.txt";
 LONGLONG CachedOffset = -1;
 UCHAR CacheBuffer[0x10000];   // max cluster size
 
-
-LONGLONG
-ComputeFileRecordLbo(
-    IN ULONG MftIndex
-)
-{
-    LONGLONG vcn;
-    LONGLONG lcn = 0;
-    ULONG extentIndex;
-    ULONG offsetWithinCluster;
-
-    vcn = (MftIndex * FrsSize) / ClusterSize;
-
-    for (extentIndex = 0; extentIndex < MAX_EXTENTS; extentIndex += 1) {
-
-        if ((vcn >= Extents[extentIndex].Vcn) &&
-            (vcn < Extents[extentIndex].Vcn + Extents[extentIndex].Length)) {
-
-            lcn = Extents[extentIndex].Lcn + (vcn - Extents[extentIndex].Vcn);
-        }
-    }
-
-    if (ClusterSize >= FrsSize) {
-
-        offsetWithinCluster = (MftIndex % (ClusterSize / FrsSize)) * FrsSize;
-        return (lcn * ClusterSize + offsetWithinCluster);
-
-    }
-    else {
-
-        //
-        //  BUGBUG keithka 4/28/00 Handle old fashioned big frs and/or big
-        //  clusters someday.
-        //
-
-        assert(FALSE);
-        return 0;
-    }
-}
-
 VOID
 FindAttributeInFileRecord(
     IN PFILE_RECORD_SEGMENT_HEADER FileRecord,
@@ -164,217 +124,76 @@ FindAttributeInFileRecord(
     return;
 }
 
-BOOLEAN
-FindNameInFileRecord(
-    IN PFILE_RECORD_SEGMENT_HEADER FileRecord,
-    IN PCWCHAR FileName,
-    IN ULONG FileNameLength
-)
+bool _is_vaild_mtf_entry(PFILE_RECORD_SEGMENT_HEADER mft_header)
 {
+    if (mft_header->Pad0[0] != 'F' ||
+        mft_header->Pad0[1] != 'I' ||
+        mft_header->Pad0[2] != 'L' ||
+        mft_header->Pad0[3] != 'E') {   
+        
+        assert(0);
+
+        return false;
+    }
+
+    if (0 == (mft_header->Flags & FILE_RECORD_SEGMENT_IN_USE))
+        return false;
+
+
+
+
+    return true;
+
+
+
+}
+
+
+
+
+void ParseMftEntry(PFILE_RECORD_SEGMENT_HEADER mft_header)
+{
+
+    if (!_is_vaild_mtf_entry(mft_header))
+    {
+        return;
+    }
+
+
     PATTRIBUTE_RECORD_HEADER attr;
-    PFILE_NAME fileNameAttr;
-    ULONG cmpResult;
 
-    FindAttributeInFileRecord(FileRecord,
-        $FILE_NAME,
-        NULL,
-        &attr);
+    attr = (PATTRIBUTE_RECORD_HEADER)((PUCHAR)mft_header + mft_header->FirstAttributeOffset);
 
-    while (NULL != attr) {
+    while (attr->TypeCode != $END) {
 
-        if (((PUCHAR)attr - (PUCHAR)FileRecord) > (LONG)FrsSize) {
+        assert(attr->RecordLength < FrsSize);
 
-            assert(FALSE);
-            return FALSE;
+        switch (attr->TypeCode)
+        {
+        case $STANDARD_INFORMATION :
+            break;
+
+
+
+
+        default:
+            assert(0);
         }
 
-        //
-        //  Names shouldn't go nonresident.
-        //
 
-        if (attr->FormCode != RESIDENT_FORM) {
 
-            assert(FALSE);
-            return FALSE;
-        }
 
-        fileNameAttr = (PFILE_NAME)((PUCHAR)attr + attr->Form.Resident.ValueOffset);
 
-        if (fileNameAttr->FileNameLength == FileNameLength) {
 
-            cmpResult = wcsncmp(FileName,
-                (PWCHAR)fileNameAttr->FileName,
-                fileNameAttr->FileNameLength);
 
-            if (0 == cmpResult) {
-
-                return TRUE;
-            }
-
-        }
-
-        printf("\nNot a match %S,%S", FileName, fileNameAttr->FileName);
-
-        //
-        //  Find the next filename, if any.
-        //
-
-        FindAttributeInFileRecord(FileRecord,
-            $FILE_NAME,
-            attr,
-            &attr);
+        attr = (PATTRIBUTE_RECORD_HEADER)((PUCHAR)attr + attr->RecordLength);
     }
 
-    return FALSE;
+
+
+
 }
 
-
-int
-FsTestOpenById(
-    IN UCHAR* ObjectId,
-    IN HANDLE VolumeHandle
-)
-{
-    HANDLE File;
-    IO_STATUS_BLOCK IoStatusBlock;
-    NTSTATUS Status;
-    NTSTATUS GetNameStatus;
-    NTSTATUS CloseStatus;
-    OBJECT_ATTRIBUTES ObjectAttributes;
-    UNICODE_STRING str;
-    WCHAR nameBuffer[MAX_PATH];
-    PFILE_NAME_INFORMATION FileName;
-    WCHAR Full[] = FULL_PATH;        // Arrays of WCHAR's aren't constants
-
-    RtlInitUnicodeString(&str, Full);
-
-    str.Length = 8;
-    RtlCopyMemory(&str.Buffer[0],  //  no device prefix for relative open.
-        ObjectId,
-        8);
-
-    InitializeObjectAttributes(&ObjectAttributes,
-        &str,
-        OBJ_CASE_INSENSITIVE,
-        VolumeHandle,
-        NULL);
-
-    Status = NtCreateFile(&File,
-        GENERIC_READ,
-        &ObjectAttributes,
-        &IoStatusBlock,
-        NULL,
-        FILE_ATTRIBUTE_NORMAL,
-        FILE_SHARE_READ | FILE_SHARE_WRITE,
-        FILE_OPEN,
-        FILE_OPEN_BY_FILE_ID,
-        NULL,
-        0);
-
-    if (NT_SUCCESS(Status)) {
-
-        RtlZeroMemory(nameBuffer, sizeof(nameBuffer));
-        FileName = (PFILE_NAME_INFORMATION)&nameBuffer[0];
-        FileName->FileNameLength = sizeof(nameBuffer) - sizeof(ULONG);
-
-        GetNameStatus = NtQueryInformationFile(File,
-            &IoStatusBlock,
-            FileName,
-            sizeof(nameBuffer),
-            FileNameInformation);
-
-        printf("%S\n", FileName->FileName);
-
-        CloseStatus = NtClose(File);
-
-        if (!NT_SUCCESS(CloseStatus)) {
-
-            printf("\nCloseStatus %x", CloseStatus);
-        }
-    }
-
-    return Status;
-}
-
-NTSTATUS
-ReadFileRecord(
-    IN HANDLE VolumeHandle,
-    IN ULONG RecordIndex,
-    IN OUT PVOID Buffer
-)
-{
-    NTSTATUS status;
-    LARGE_INTEGER byteOffset;
-    IO_STATUS_BLOCK ioStatusBlock;
-    ULONG offsetWithinBuffer;
-
-    byteOffset.QuadPart = ComputeFileRecordLbo(RecordIndex);
-
-    if (FrsSize >= ClusterSize) { //mftentry的大小 > 簇大小
-
-        status = NtReadFile(VolumeHandle,
-            NULL,            //  Event
-            NULL,            //  ApcRoutine
-            NULL,            //  ApcContext
-            &ioStatusBlock,
-            Buffer,
-            FrsSize,
-            &byteOffset,    //  ByteOffset
-            NULL);         //  Key
-
-    }
-    else {
-
-        //
-        //  Clusters bigger than filerecords, do cluster
-        //  size reads and dice up the returns.
-        //
-
-        if ((-1 == CachedOffset) ||
-            (byteOffset.QuadPart < CachedOffset) ||
-            ((byteOffset.QuadPart + FrsSize) > (CachedOffset + ClusterSize))) {
-
-            printf("\nCache miss at %I64x", byteOffset.QuadPart);
-            
-
-            status = NtReadFile(VolumeHandle,
-                NULL,            //  Event
-                NULL,            //  ApcRoutine
-                NULL,            //  ApcContext
-                &ioStatusBlock,
-                CacheBuffer,
-                ClusterSize,
-                &byteOffset,    //  ByteOffset
-                NULL);         //  Key
-
-            if (0 != status) {
-
-                //
-                //  The cache buffer may be junk now, reread it next time.
-                //
-
-                CachedOffset = -1;
-                return status;
-            }
-
-            CachedOffset = byteOffset.QuadPart;
-            offsetWithinBuffer = 0;
-
-        }
-        else {
-
-
-            printf("\nCache hit at %I64x", byteOffset.QuadPart);
-
-            offsetWithinBuffer = (ULONG)(byteOffset.QuadPart % CachedOffset);
-            status = 0;
-        }
-
-        RtlCopyMemory(Buffer, CacheBuffer + offsetWithinBuffer, FrsSize);
-    }
-
-    return status;
-}
 
 int main()
 {
@@ -387,23 +206,11 @@ int main()
     IO_STATUS_BLOCK IoStatusBlock;
     LONGLONG mftBytesRead;
     PATTRIBUTE_RECORD_HEADER attr;
-    VCN nextVcn;
-    VCN currentVcn;
-    VCN vcnDelta;
-    LCN currentLcn;
-    LCN lcnDelta;
-    PUCHAR bsPtr;
-    UCHAR v;
-    UCHAR l;
-    UCHAR i;
-    ULONG extentCount;
     ULONG recordIndex;
     ULONG mftRecords;
-    ULONG fileNameLength;
-    MFT_SEGMENT_REFERENCE segRef;
-    PFILE_RECORD_SEGMENT_HEADER DirMft;
+    void* allMftBuffer;
 
-    volumeHandle = CreateFileW(Volume,
+    volumeHandle = CreateFileW(L"\\\\.\\C:",
         GENERIC_READ | GENERIC_WRITE,
         FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL,
@@ -500,122 +307,24 @@ int main()
         NULL,
         &attr);
 
-
-    //DirMft = (PFILE_RECORD_SEGMENT_HEADER)mybuffer;
-
+    //2022.2.13 0x0007d600
     mftRecords = (ULONG)(attr->Form.Nonresident.FileSize / FrsSize);
 
-    nextVcn = attr->Form.Nonresident.LowestVcn;
-    currentLcn = 0;
-    extentCount = 0;
-    RtlZeroMemory(Extents, sizeof(Extents));
+    allMftBuffer = HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS | HEAP_ZERO_MEMORY, mftRecords * 1024);
 
-    bsPtr = ((PUCHAR)attr) + attr->Form.Nonresident.MappingPairsOffset;
-
-    while (*bsPtr != 0) {
-
-        currentVcn = nextVcn;
-
-        //
-        //  Variable names v and l used for consistency with comments in 
-        //  ATTRIBUTE_RECORD_HEADER struct explaining how to decompress
-        //  mapping pair information.
-        //
-
-        v = (*bsPtr) & 0xf;
-        l = ((*bsPtr) & 0xf0) >> 4;
-
-        bsPtr += 1;
-
-        for (vcnDelta = 0, i = 0; i < v; i++) {
-
-            vcnDelta += *(bsPtr++) << (8 * i);
-        }
-
-        for (lcnDelta = 0, i = 0; i < l; i++) {
-
-            lcnDelta += *(bsPtr++) << (8 * i);
-        }
-
-        //
-        //  Sign extend.
-        //
-
-        if (0x80 & (*(bsPtr - 1))) {
-
-            for (; i < sizeof(lcnDelta); i++) {
-
-                lcnDelta += 0xff << (8 * i);
-            }
-        }
-
-        currentLcn += lcnDelta;
-        // printf( "\nVcn %I64x, Lcn %I64x, Length %I64x", currentVcn, currentLcn, vcnDelta );
-
-        if (extentCount < MAX_EXTENTS) {
-
-            Extents[extentCount].Vcn = currentVcn;
-            Extents[extentCount].Lcn = currentLcn;
-            Extents[extentCount].Length = vcnDelta;
-
-            extentCount += 1;
-
-        }
-        else {
-
-            printf("\nExcessive MFT fragmentation, redefine MAX_EXTENTS and recompile");
-        }
-
-        currentVcn += vcnDelta;
-    }
-
-    //
-    //  Now we know where the MFT is, let's go read it.
-    //
-
-    fileNameLength = wcslen(FileName);
 
     for (recordIndex = 0; recordIndex <= mftRecords; recordIndex++) {
 
-        ReadStatus = ReadFileRecord(volumeHandle,
-            recordIndex,
-            mybuffer);
+       
 
-        if (STATUS_SUCCESS != ReadStatus) {
 
-            printf("\nMFT record read failed with status %x", ReadStatus);
-            goto exit;
-        }
 
-        if (FindNameInFileRecord((PFILE_RECORD_SEGMENT_HEADER)mybuffer,
-            FileName,
-            fileNameLength)) {
 
-            //
-            //  Found a match, open by id and retrieve name.
-            //
 
-                printf("\nFound match in file %08x %08x\n",
-                    ((PFILE_RECORD_SEGMENT_HEADER)mybuffer)->SequenceNumber,
-                    recordIndex);
 
-            segRef.SegmentNumberLowPart = recordIndex;
-            segRef.SegmentNumberHighPart = 0;
-            segRef.SequenceNumber = ((PFILE_RECORD_SEGMENT_HEADER)mybuffer)->SequenceNumber;
 
-            FsTestOpenById((PUCHAR)&segRef, volumeHandle);
-        }
 
-        //
-        //  The number 0x400 is completely arbitrary.  It's a reasonable interval
-        //  of work to do before printing another period to tell the user we're 
-        //  making progress still.
-        //
 
-        if (0 == (recordIndex % 0x400)) {
-
-            printf(".");
-        }
     }
 
 
@@ -634,6 +343,8 @@ exit:
 
         CloseHandle(volumeHandle);
     }
+
+    HeapFree(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS | HEAP_ZERO_MEMORY, allMftBuffer);
 
     return 0;
 }
