@@ -24,23 +24,11 @@ using namespace std;
 WCHAR Volume[] = VOLUME_PATH;
 char mybuffer[0x8000];
 
-typedef struct _EXTENT {
-
-    LONGLONG Vcn;
-    LONGLONG Lcn;
-    LONGLONG Length;
-
-} EXTENT, * PEXTENT;
-
-#define MAX_EXTENTS 64
-
 LARGE_INTEGER MftStart;
 ULONG ClusterSize;
 ULONG FrsSize;
-EXTENT Extents[MAX_EXTENTS];
-PCWCHAR FileName = L"pingme.txt";
-LONGLONG CachedOffset = -1;
-UCHAR CacheBuffer[0x10000];   // max cluster size
+
+
 
 VOID
 FindAttributeInFileRecord(
@@ -148,10 +136,64 @@ bool _is_vaild_mtf_entry(PFILE_RECORD_SEGMENT_HEADER mft_header)
 
 }
 
+void ParseAttrStandardInfo(const PATTRIBUTE_RECORD_HEADER& attr)
+{
+    printf("$STANDARD_INFORMATION\n");
+
+    PSTANDARD_INFORMATION t = nullptr;
+
+
+    if(attr->FormCode == RESIDENT_FORM) //Resident部分+头部 = 0x18
+        t = (PSTANDARD_INFORMATION)((uint8_t*) attr + 0x18);
+
+    assert(t); //非常驻
+
+    printf("    Identificator %x\n", attr->Instance);
+    printf("    Usn: %llx\n",t->Usn);
+
+}
+
+void ParseAttrFileName(const PATTRIBUTE_RECORD_HEADER& attr)
+{
+    printf("$FILE_NAME\n");
+
+    PFILE_NAME t = nullptr;
+
+    if (attr->FormCode == RESIDENT_FORM)
+        t = (PFILE_NAME)((uint8_t*)attr + 0x18);
+
+    assert(t);
+
+    printf("    Identificator %x\n", attr->Instance);
+    printf("    Name: %ws\n", t->FileName);
+}
+
+void ParseAttrData(const PATTRIBUTE_RECORD_HEADER& attr)
+{
+    printf("$DATA\n");
+
+    //DATA一般都是非常驻的
+    assert(attr->FormCode == NONRESIDENT_FORM);
+
+    printf("    Identificator %x\n", attr->Instance);
+
+    printf("    Start VCN %llx\n", attr->Form.Nonresident.LowestVcn);
+    printf("    Last VCN %llx\n", attr->Form.Nonresident.HighestVcn);
+
+    //MappingPairsOffset就是Run list offset
+    printf("    Offset to Run list %x\n", attr->Form.Nonresident.MappingPairsOffset);
+    printf("    Allocated size %llx\n", attr->Form.Nonresident.AllocatedLength);
+
+    //计算run list大小
+    uint32_t RunListSize = attr->RecordLength - sizeof(ATTRIBUTE_RECORD_HEADER);
 
 
 
-void ParseMftEntry(PFILE_RECORD_SEGMENT_HEADER mft_header)
+
+}
+
+
+void ParseMftEntry(const PFILE_RECORD_SEGMENT_HEADER &mft_header)
 {
 
     if (!_is_vaild_mtf_entry(mft_header))
@@ -171,14 +213,23 @@ void ParseMftEntry(PFILE_RECORD_SEGMENT_HEADER mft_header)
         switch (attr->TypeCode)
         {
         case $STANDARD_INFORMATION :
+            ParseAttrStandardInfo(attr);
             break;
-
-
-
+        case $FILE_NAME:
+            ParseAttrFileName(attr);
+            break;
+        case $DATA:
+            ParseAttrData(attr);
+            break;
 
         default:
             assert(0);
         }
+
+
+
+
+
 
 
 
@@ -241,7 +292,11 @@ int main()
     if (0 != ReadStatus) {
 
         printf("\nMFT record 0 read failed with status %x", ReadStatus);
-        goto exit;
+
+        if (volumeHandle != INVALID_HANDLE_VALUE) {
+
+            CloseHandle(volumeHandle);
+        }
     }
 
     bootSector = (PPACKED_BOOT_SECTOR)mybuffer;
@@ -253,7 +308,11 @@ int main()
         bootSector->Oem[3] != 'S') {
 
         printf("\nNot an NTFS volume");
-        goto exit;
+
+        if (volumeHandle != INVALID_HANDLE_VALUE) {
+
+            CloseHandle(volumeHandle);
+        }
     }
 
 
@@ -297,7 +356,11 @@ int main()
     if (0 != ReadStatus) {
 
         printf("\nMFT record 0 read failed with status %x", ReadStatus);
-        goto exit;
+        
+        if (volumeHandle != INVALID_HANDLE_VALUE) {
+
+            CloseHandle(volumeHandle);
+        }
     }
 
     mftBytesRead += IoStatusBlock.Information;
@@ -310,13 +373,44 @@ int main()
     //2022.2.13 0x0007d600
     mftRecords = (ULONG)(attr->Form.Nonresident.FileSize / FrsSize);
 
-    allMftBuffer = HeapAlloc(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS | HEAP_ZERO_MEMORY, mftRecords * 1024);
+    allMftBuffer = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, mftRecords * 1024);
 
+    if (!allMftBuffer) {
+        
+        if (volumeHandle != INVALID_HANDLE_VALUE) {
+
+            CloseHandle(volumeHandle);
+        }
+
+        return 0;
+    }
+    ReadStatus = NtReadFile(volumeHandle,
+        NULL,            //  Event
+        NULL,            //  ApcRoutine
+        NULL,            //  ApcContext
+        &IoStatusBlock,
+        allMftBuffer,
+        mftRecords * 1024,
+        &MftStart,      //  ByteOffset   0xC0000000/512=0x600000(扇区)
+        NULL);         //  Key
+
+    if (ReadStatus < 0)
+    {
+
+        if (volumeHandle != INVALID_HANDLE_VALUE)
+            CloseHandle(volumeHandle);
+
+        return 0;
+    }
 
     for (recordIndex = 0; recordIndex <= mftRecords; recordIndex++) {
 
-       
+        ParseMftEntry((PFILE_RECORD_SEGMENT_HEADER)(uint8_t*)allMftBuffer);
 
+
+
+
+        allMftBuffer = ((uint8_t*)allMftBuffer + 1024);
 
 
 
@@ -336,13 +430,6 @@ int main()
 
 
 
-
-
-exit:
-    if (volumeHandle != NULL) {
-
-        CloseHandle(volumeHandle);
-    }
 
     HeapFree(GetProcessHeap(), HEAP_GENERATE_EXCEPTIONS | HEAP_ZERO_MEMORY, allMftBuffer);
 

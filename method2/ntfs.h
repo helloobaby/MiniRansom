@@ -693,3 +693,92 @@ typedef struct _FILE_NAME {
 typedef FILE_NAME* PFILE_NAME;
 
 
+typedef struct _STANDARD_INFORMATION {
+
+    //
+    //  File creation time.
+    //
+
+    LONGLONG CreationTime;                                          //  offset = 0x000
+
+    //
+    //  Last time the DATA attribute was modified.
+    //
+
+    LONGLONG LastModificationTime;                                  //  offset = 0x008
+
+    //
+    //  Last time any attribute was modified.
+    //
+
+    LONGLONG LastChangeTime;                                        //  offset = 0x010
+
+    //
+    //  Last time the file was accessed.  This field may not always
+    //  be updated (write-protected media), and even when it is
+    //  updated, it may only be updated if the time would change by
+    //  a certain delta.  It is meant to tell someone approximately
+    //  when the file was last accessed, for purposes of possible
+    //  file migration.
+    //
+
+    LONGLONG LastAccessTime;                                        //  offset = 0x018
+
+    //
+    //  File attributes.  The first byte is the standard "Fat"
+    //  flags for this file.
+    //
+
+    ULONG FileAttributes;                                           //  offset = 0x020
+
+    //
+    //  Maximum file versions allowed for this file.  If this field
+    //  is 0, then versioning is not enabled for this file.  If
+    //  there are multiple files with the same version, then the
+    //  value of Maximum file versions in the file with the highest
+    //  version is the correct one.
+    //
+
+    ULONG MaximumVersions;                                          //  offset = 0x024
+
+    //
+    //  Version number for this file.
+    //
+
+    ULONG VersionNumber;                                            //  offset = 0x028
+
+    //
+    //  Class Id from the bidirectional Class Id index
+    //
+
+    ULONG ClassId;                                                  //  offset = 0x02c
+
+    //
+    //  Id for file owner, from bidir security index
+    //
+
+    ULONG OwnerId;                                                  //  offset = 0x030
+
+    //
+    //  SecurityId for the file - translates via bidir index to
+    //  granted access Acl.
+    //
+
+    ULONG SecurityId;                                               //  offset = 0x034
+
+    //
+    //  Current amount of quota that has been charged for all the
+    //  streams of this file.  Changed in same transaction with the
+    //  quota file itself.
+    //
+
+    ULONGLONG QuotaCharged;                                         //  offset = 0x038
+
+    //
+    //  Update sequence number for this file.
+    //
+
+    ULONGLONG Usn;                                                  //  offset = 0x040
+
+} STANDARD_INFORMATION;                                             //  sizeof = 0x048
+typedef STANDARD_INFORMATION* PSTANDARD_INFORMATION;
