@@ -149,6 +149,8 @@ void ParseAttrStandardInfo(const PATTRIBUTE_RECORD_HEADER& attr)
     assert(t); //非常驻
 
     printf("    Identificator %x\n", attr->Instance);
+
+    //Update Sequence Number
     printf("    Usn: %llx\n",t->Usn);
 
 }
