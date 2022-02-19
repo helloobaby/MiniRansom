@@ -146,7 +146,8 @@ typedef ATTRIBUTE_TYPE_CODE* PATTRIBUTE_TYPE_CODE;
 #define $STANDARD_INFORMATION            (0x10)
 #define $ATTRIBUTE_LIST                  (0x20)
 #define $FILE_NAME                       (0x30)
-#define $OBJECT_ID                       (0x40)
+//$VOLUME_VERSION
+#define $OBJECT_ID                       (0x40)  
 #define $SECURITY_DESCRIPTOR             (0x50)
 #define $VOLUME_NAME                     (0x60)
 #define $VOLUME_INFORMATION              (0x70)

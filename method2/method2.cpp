@@ -2,10 +2,15 @@
 
 这个项目的目的是利用ntfs 的 mft 来遍历C盘的文件
 
+vcn = virtual cluster number
+lcn = logical cluster number 
+
 */
 
 //https://www.cnblogs.com/caishunzhe/p/12833859.html
 //https://zh.wikipedia.org/wiki/NTFS
+//https://www.sciencedirect.com/topics/computer-science/starting-cluster
+//https://www.writebug.com/explore/article/86
 
 #include <iostream>
 #include<windows.h>
@@ -27,6 +32,9 @@ char mybuffer[0x8000];
 LARGE_INTEGER MftStart;
 ULONG ClusterSize;
 ULONG FrsSize;
+
+#define Add2Ptr(P,I) ((PVOID)((PUCHAR)(P) + (I)))
+#define PtrOffset(B,O) ((ULONG)((ULONG_PTR)(O) - (ULONG_PTR)(B)))
 
 
 
@@ -172,23 +180,54 @@ void ParseAttrFileName(const PATTRIBUTE_RECORD_HEADER& attr)
 
 void ParseAttrData(const PATTRIBUTE_RECORD_HEADER& attr)
 {
+    PUCHAR NextMappingPairs;
+    UCHAR VLength;
+    UCHAR LLength;
+
+    uint64_t qwTmp = 0;
+
     printf("$DATA\n");
 
+    /*
+    * 2022.2.19
+    * 数据长度多了就非常驻，太少的就常驻
+    * 
+    */
     //DATA一般都是非常驻的
-    assert(attr->FormCode == NONRESIDENT_FORM);
+    //assert(attr->FormCode == NONRESIDENT_FORM);
 
     printf("    Identificator %x\n", attr->Instance);
 
     printf("    Start VCN %llx\n", attr->Form.Nonresident.LowestVcn);
     printf("    Last VCN %llx\n", attr->Form.Nonresident.HighestVcn);
 
-    //MappingPairsOffset就是Run list offset
+    //MappingPairsOffset
     printf("    Offset to Run list %x\n", attr->Form.Nonresident.MappingPairsOffset);
     printf("    Allocated size %llx\n", attr->Form.Nonresident.AllocatedLength);
+    printf("    CompressionUnit %d\n", attr->Form.Nonresident.CompressionUnit);
 
-    //计算run list大小
-    uint32_t RunListSize = attr->RecordLength - sizeof(ATTRIBUTE_RECORD_HEADER);
+    
+    NextMappingPairs = (PUCHAR)Add2Ptr(attr, attr->Form.Nonresident.MappingPairsOffset);
+    
+    do
+    {
+        LLength = *NextMappingPairs >> 4; //起始簇号占用几字节
+        VLength = *NextMappingPairs & 0x0f; //低位  大小占用字节数
 
+        memcpy_s(&qwTmp, sizeof(qwTmp), NextMappingPairs+1, VLength);
+
+        printf("\tsize: %llx", qwTmp);
+
+        qwTmp = 0;
+        memcpy_s(&qwTmp, sizeof(qwTmp), NextMappingPairs + 1 + VLength, LLength);
+
+        printf("\tclusters starting at %llx\n", qwTmp);
+
+        qwTmp = 0;
+        NextMappingPairs = NextMappingPairs + LLength + VLength + 1 ;
+
+    }
+    while (LLength);
 
 
 
@@ -223,7 +262,16 @@ void ParseMftEntry(const PFILE_RECORD_SEGMENT_HEADER &mft_header)
         case $DATA:
             ParseAttrData(attr);
             break;
-
+        case $BITMAP:
+            break;
+        case $OBJECT_ID:
+            break;
+        case $VOLUME_NAME:
+            break;
+        case $VOLUME_INFORMATION:
+            break;
+        case $SECURITY_DESCRIPTOR:
+            break;
         default:
             assert(0);
         }
