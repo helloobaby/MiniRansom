@@ -13,33 +13,10 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
-    <Filter Include="encrypt">
-      <UniqueIdentifier>{cd0920f8-e930-4632-a6ef-19d7184ffd3c}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="dir">
-      <UniqueIdentifier>{afa5f5e7-7e75-4651-ba68-86fd10ec204d}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="method1.cpp">
+    <ClCompile Include="filesystem.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="encrypt.cpp">
-      <Filter>encrypt</Filter>
-    </ClCompile>
-    <ClCompile Include="encrypt_file.cpp">
-      <Filter>dir</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="encryp.h">
-      <Filter>encrypt</Filter>
-    </ClInclude>
-    <ClInclude Include="entrypt_file.h">
-      <Filter>dir</Filter>
-    </ClInclude>
-    <ClInclude Include="utils.h">
-      <Filter>头文件</Filter>
-    </ClInclude>
   </ItemGroup>
 </Project>
