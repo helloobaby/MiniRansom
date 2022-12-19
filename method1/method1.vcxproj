@@ -154,7 +154,14 @@
   <ItemGroup>
     <ClInclude Include="encryp.h" />
     <ClInclude Include="entrypt_file.h" />
+    <ClInclude Include="resource.h" />
     <ClInclude Include="utils.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="method1.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="..\resource\360.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
