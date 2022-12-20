@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 lazy_static = "1.4.0" 
 walkdir = "2"
+whoami = "1.2.3"
