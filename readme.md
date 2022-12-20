@@ -1,4 +1,4 @@
-MiniRansomware
+MiniRansomware（for some tests）
 
 ------
 
