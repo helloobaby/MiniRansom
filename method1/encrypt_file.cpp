@@ -61,9 +61,6 @@ void encrypt_file_recursive(const std::wstring &path, bool root) {
 
         printf("%ws\n", file_full_path);
 
-        // https://bbs.csdn.net/topics/390740963
-        // 这里确实c++标准库有这个问题,只能用fopen了
-
         h = CreateFileW(file_full_path, FILE_WRITE_ACCESS,
                         FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
                         FILE_ATTRIBUTE_NORMAL, NULL);
