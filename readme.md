@@ -4,11 +4,13 @@ MiniRansomware
 
 ### 
 
-C/C++ with windows api
+##### C/C++ with windows api
 
 ![img](https://github.com/helloobaby/MiniRansom/blob/master/mapped-variables.gif)
 
 
 
-Rust with third-party library
+##### Rust with third-party library
+
+![img](https://github.com/helloobaby/MiniRansom/blob/master/mapped-variables2.gif)
 
