@@ -121,3 +121,6 @@ bool findStringIC(const std::wstring& strHaystack, const std::wstring& strNeedle
     return (it != strHaystack.end());
 }
 
+
+// fsutil.exe IsVolumeLocalNTFS IsVolumeNTFS
+bool IsVolumeNTFS(WCHAR* lpRootPathName) { return true; }

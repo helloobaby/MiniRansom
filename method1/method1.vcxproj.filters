@@ -24,9 +24,6 @@
     <ClCompile Include="method1.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="encrypt.cpp">
-      <Filter>encrypt</Filter>
-    </ClCompile>
     <ClCompile Include="encrypt_file.cpp">
       <Filter>dir</Filter>
     </ClCompile>

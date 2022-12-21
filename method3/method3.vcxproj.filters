@@ -18,5 +18,8 @@
     <ClCompile Include="method3.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="..\method1\encrypt.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

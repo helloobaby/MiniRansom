@@ -147,7 +147,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="encrypt.cpp" />
     <ClCompile Include="encrypt_file.cpp" />
     <ClCompile Include="method1.cpp" />
   </ItemGroup>
