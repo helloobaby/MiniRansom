@@ -1,6 +1,6 @@
 [package]
 build = "build.rs"
-name = "mimikatz"
+name = "encryptor"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,6 +10,6 @@ edition = "2021"
 lazy_static = "1.4.0" 
 walkdir = "2"
 whoami = "1.2.3"
-
+rand = "0.8"
 [build-dependencies]
 winres = "0.1"
